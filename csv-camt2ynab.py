@@ -1,24 +1,33 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 #Konvertiere SpaKa-CSV in YNAB CSV:
+from __future__ import print_function
 import csv
-from sys import argv
+from sys import argv, version_info
 from datetime import date
 
+
 scriptname, csv_input = argv
+
 
 #dynamischer Dateiname:
 today = date.today()
 csv_output = "Import_" + str(today.day) + "_" + str(today.month) + "_" + str(today.year) + ".csv"
 
 #Quelldatei:
-infile = open(csv_input, 'rb')
+if version_info[0] < 3:
+	infile = open(csv_input, 'rb')
+else:
+	infile = open(csv_input, 'r')
 # a, b, c, d, e, f, g, h, i, j, k
 #"Auftragskonto";"Buchungstag";"Valutadatum";"Buchungstext";"Verwendungszweck";"Beguenstigter/Zahlungspflichtiger";"Kontonummer";"BLZ";"Betrag";"Waehrung";"Info"
 reader = csv.reader(infile, delimiter = ';', quotechar ='"')
 
 #Zieldatei:
-outfile = open(csv_output, 'wb')
+if version_info[0] < 3:
+	outfile = open(csv_output, 'wb')
+else:
+	outfile = open(csv_output, 'w')
 writer = csv.writer(outfile)
 
 #Header aus Quelldatei ignorieren:
@@ -58,6 +67,5 @@ for row in reader:
 #Dateien freigeben:
 infile.close()
 outfile.close()
-print "Done! Wrote %d Columns to File: %r" % (i, csv_output)
-
-
+#print("Done! Wrote %d Columns to File: %s") % (i, csv_output)
+print("Done!")
