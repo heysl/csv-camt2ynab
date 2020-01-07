@@ -1,71 +1,94 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-#Konvertiere SpaKa-CSV in YNAB CSV:
-from __future__ import print_function
 import csv
-from sys import argv, version_info
-from datetime import date
+from sys import argv
+from datetime import datetime
+import argparse
 
 
-scriptname, csv_input = argv
+def csv2dicts(filename):
+    csv_dict_list = []
+    with open(filename, 'r') as input_file:
+        reader = csv.DictReader(input_file, delimiter=';', quotechar='"')
+        for row in reader:
+            csv_dict_list.append(row)
+    return csv_dict_list
+
+def map_to_giro(input):
+    result_list = []
+    for d in input:
+        date = d['Buchungstag'].replace('.', '/')
+        payee = d['Beguenstigter/Zahlungspflichtiger'].replace(',', ' ')
+        category = ''
+        memo = d['Verwendungszweck'].replace(',', ' ')
+        amount = d['Betrag'].replace(',', '.')
+        if amount[0] == '-':
+            outflow = amount.replace('-', '')
+            inflow = ''
+        else:
+            outflow = ''
+            inflow = amount
+        result_list.append({'Date': date, 'Payee': payee, 'Category': category, 'Memo': memo, 'Outflow': outflow, 'Inflow': inflow})
+    return result_list
+
+def map_to_cc(input):
+    result_list = []
+    for d in input:
+        date = d['Buchungsdatum'].replace('.', '/')
+        payee = '{} {}'.format(d['Transaktionsbeschreibung'].replace(',', ' '), d['Transaktionsbeschreibung Zusatz'].replace(',', ' '))
+        category = ''
+        memo = ''
+        amount = d['Buchungsbetrag'].replace(',', '.')
+        if amount[0] == '-':
+            outflow = amount.replace('-', '')
+            inflow = ''
+        else:
+            outflow = ''
+            inflow = amount
+        result_list.append({'Date': date, 'Payee': payee, 'Category': category, 'Memo': memo, 'Outflow': outflow, 'Inflow': inflow})
+    return result_list
+
+def write_dict_to_csv(input, output_filename):
+    with open(output_filename, 'w', newline='') as file:
+        line_count = 0
+        fieldnames = ['Date','Payee','Category','Memo','Outflow','Inflow']
+        writer = csv.DictWriter(file, fieldnames=fieldnames)
+
+        writer.writeheader()
+        for d in input:
+            writer.writerow(d)
+            line_count += 1
+    return line_count
+
+parser = argparse.ArgumentParser(description='Transform different csv-inputs for use with YNAB4')
+parser.add_argument(
+    dest='csv_input_filename',
+    type=str,
+    help='the csv file to be transformed'
+)
+parser.add_argument(
+    '-c',
+    dest='cc',
+    action='store_true',
+    help='input file is from credit card'
+)
+
+args = parser.parse_args()
+
+# set filename for input
+csv_input_filename = args.csv_input_filename
+#csv_input_filename = './umsatz-5232________9563-20200106.csv'
+
+# set filename for output
+#csv_output_filename = "Import_{}.csv".format(datetime.strftime(datetime.now(), '%d-%m-%Y'))
+csv_output_filename = 'test.csv'
 
 
-#dynamischer Dateiname:
-today = date.today()
-csv_output = "Import_" + str(today.day) + "_" + str(today.month) + "_" + str(today.year) + ".csv"
+input_list = csv2dicts(csv_input_filename)
 
-#Quelldatei:
-if version_info[0] < 3:
-	infile = open(csv_input, 'rb')
+if args.cc:
+    csv_output_filename = 'cc_' + csv_output_filename
+    mapped_csv_data = map_to_cc(input_list)
 else:
-	infile = open(csv_input, 'r')
-# a, b, c, d, e, f, g, h, i, j, k
-#"Auftragskonto";"Buchungstag";"Valutadatum";"Buchungstext";"Verwendungszweck";"Beguenstigter/Zahlungspflichtiger";"Kontonummer";"BLZ";"Betrag";"Waehrung";"Info"
-reader = csv.reader(infile, delimiter = ';', quotechar ='"')
+    mapped_csv_data = map_to_giro(input_list)
 
-#Zieldatei:
-if version_info[0] < 3:
-	outfile = open(csv_output, 'wb')
-else:
-	outfile = open(csv_output, 'w')
-writer = csv.writer(outfile)
-
-#Header aus Quelldatei ignorieren:
-next(reader, None)
-
-#Header schreiben:
-#Date,Payee,Category,Memo,Outflow,Inflow
-writer.writerow( ('Date', 'Payee', 'Category', 'Memo', 'Outflow', 'Inflow') )
-
-#Zeilen schreiben:
-i = 0
-for row in reader:
-	i = i+1
-	#Spalten der SpaKa-csv mappen:
-	col1, col2, col3, col4, col5, col6, col7, col8, col9, col10, col11, col12, col13, col14, col15, col16, col17 = map(str, row)
-
-	#************ Konvertieren der Spalten ************
-	#Datumsformat (hier string) anpassen:
-	date = col2.replace('.', '/')
-	payee = col12.replace(',', ' ')
-	category = ''
-	memo = col5
-	#YNAB braucht amerikanisches Waehrungsformat:
-	betrag = col15.replace(',', '.')
-	#Wert in Quell-Spalte "Betrag" aufteilen in die Spalten "Outflow" (wenn negativ) und "Inflow" (wenn positiv):
-	if betrag[0] == '-':
-		outflow = betrag.replace('-', '')
-		inflow = ''
-	else:
-		outflow = ''
-		inflow = betrag
-	#************ ************ ************ ************
-	#Nur in der YNAB-csv benoetigten Spalten:
-	writer.writerow([date, payee, category, memo, outflow, inflow])
-
-
-#Dateien freigeben:
-infile.close()
-outfile.close()
-#print("Done! Wrote %d Columns to File: %s") % (i, csv_output)
-print("Done!")
+line_count = write_dict_to_csv(mapped_csv_data, csv_output_filename)
+print('Done! Wrote {} lines to file "{}".'.format(line_count, csv_output_filename))
