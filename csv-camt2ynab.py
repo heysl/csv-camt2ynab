@@ -78,8 +78,8 @@ csv_input_filename = args.csv_input_filename
 #csv_input_filename = './umsatz-5232________9563-20200106.csv'
 
 # set filename for output
-#csv_output_filename = "Import_{}.csv".format(datetime.strftime(datetime.now(), '%d-%m-%Y'))
-csv_output_filename = 'test.csv'
+csv_output_filename = "Import_{}.csv".format(datetime.strftime(datetime.now(), '%d-%m-%Y'))
+#csv_output_filename = 'test.csv'
 
 
 input_list = csv2dicts(csv_input_filename)
